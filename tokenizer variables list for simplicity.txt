@@ -1,0 +1,5 @@
+Verdict.txt---->open
+[1]raw_text=Verdict.txt as it is
+[2]preprocessed=words afters removing extra spaces
+[3]all_words=set(preprocesssed)-->removed repeating words
+[4]vocab=dictionary of all_words --->💠key=tokens/words  💠value=integers  -->using enumerate assigned indexes
