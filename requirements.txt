@@ -2,3 +2,4 @@ torch
 tiktoken
 gensim
 importlib_metadata
+matplotlib

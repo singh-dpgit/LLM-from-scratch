@@ -238,9 +238,9 @@ print(word_vectors['computer'])
 input_ids=torch.tensor([2,3,5,1])
 vocab_size=6#for sake of simplicity we take dim=3 and vocab=6
 output_dim=3
-torch.manual_seed(123)
+torch.manual_seed(123)#on every run we will get same random values in embedding layer since we are setting the seed so that at once random values are generated and these values are optimised during training of LLM as a part of LLM optimization itself
 embedding_layer=torch.nn.Embedding(vocab_size,output_dim)#Embedding creates a dictionary(look-up table) and initialise all the weights of the embeddings matrix randomly 
-print(embedding_layer.weight)
+print(embedding_layer.weight)#weight is a 2d matrix of size vocab_size*output_dim
 """This gives the weight matrix
 (6 rows-->bcoz 6 vocabs and 3 colmns-->since 3dimensions for each vocab)
  of embedding layer which contains
@@ -253,7 +253,7 @@ print(embedding_layer(input_ids))#for token ids 2=3(since starts form 0),3->4,5-
 """----------------------POSITIONAL EMBEDDINGS-------------------------"""
 vocab_size=50257
 output_dim=256
-token_embedding_layer=torch.nn.Embedding(vocab_size,output_dim)
+token_embedding_layer=torch.nn.Embedding(vocab_size,output_dim)#returns a tensor object which has special methods like __call__() which is used to get the row of the particular token id from the embedding matrix
 max_length=4
 dataloader=create_dataloader_v1(raw_text,batch_size=8,max_length=max_length,stride=max_length,shuffle=False)
 data_iter=iter(dataloader)#dataloader helps us to manage the task of inputing,batching,creating different batches,parallel processing becomes more easier
@@ -262,7 +262,7 @@ print("Token ID's:\n",inputs)
 print("\nInputs shape:\n",inputs.shape)
 #8*4 dimensional token id tensor since batch_size=8 and max_length i.e,context_size=4
 #for every input id in 8*4 tensor lets get 1 row(256 dimensions/cols) that is vector embedding layer(look-up table)
-token_embeddings=token_embedding_layer(inputs)
+token_embeddings=token_embedding_layer(inputs)#implicitly calls the __call__() method of the embedding layer which returns the row of the particular token id from the embedding matrix
 print(token_embeddings.shape)
 context_length=max_length
 pos_embedding_layer=torch.nn.Embedding(context_length,output_dim)
@@ -287,17 +287,106 @@ inputs = embedding(input_ids)
 print(inputs)
 """-------------------Implementing simplified self attention mechanism----------------"""
 import torch
-inputs=torch.tensor([[ 0.3374, -0.1778, -0.1690],
-        [ 0.9178,  1.5810,  1.3010],
-        [ 1.2753, -0.2010, -0.1606],
-        [-0.4015,  0.9666, -1.1481],
-        [-1.1589,  0.3255, -0.6315],
-        [-2.8400, -0.7849, -1.4096]])
+inputs = torch.tensor([
+[0.43, 0.15, 0.89], # your
+[0.55, 0.87, 0.66], # journey -->embedduing of the word journey which is a vector of 3 dimensions and highly realted to word starts than other words therefore it will wrt to joruney the attention score of starts will be higher than other words
+[0.57, 0.85, 0.64], # starts
+[0.22, 0.58, 0.33], # with
+[0.77, 0.25, 0.10], # one
+[0.05, 0.80, 0.55]  # step
+])
 query=inputs[1]
 attn_scores_2=torch.empty(inputs.shape[0])
 for i,x_i in enumerate(inputs):
-    attn_scores_2[i]=torch.dot(x_i,query)
+    attn_scores_2[i]=torch.dot(x_i,query) #Dot product of the query vector with each input embedding vector to get attention scores abcosθ suppose a and b are the two vectors of words starts and journey and we want to calculate which word is more related to journey among all the words in the sentences therefore our query becomes the embedding of the word journey and we take dot product of this query with all the input embeddings to get attention scores which will be higher for the word starts than other words since it is more related to journey than other words in the sentence 
 print(attn_scores_2)#printing attention scores of query w.r.t every input embedding
+"""
+why dot product?-->since it gives us a measure of similarity between two vectors,
+if vectors of two words are closer in the vector space, their dot product will be higher,indicating a stronger relationship between those words.
+assume they are parallel then the angle between them is 0 degree and cos0=1 hence dot product is maximum
+if they are orthogonal then the angle between them is 90 degree and cos90=0 hence dot product is 0
+if they are opposite then the angle between them is 180 degree and cos180=-1 hence dot product is minimum
+This is how the attention mechanism helps the model to focus on relevant parts of the input when making predictions,by assigning higher attention scores to more relevant words in the context of the query word.
+"""
+"""
+now we will normalise the attention scores(in terms of %age so that they sum up to 1) using softmax function which is given by the formula
+softmax(x_i) = exp(x_i) / sum(exp(x_j)) for j=1 to n
+where x_i is the attention score for the i-th input and n is the total number of inputs. This function converts the attention scores into probabilities,
+ allowing the model to weigh the importance of each input when making predictions.
+ The higher the attention score, the more relevant the input is to the query, and thus it will have a higher probability after applying softmax. 
+ This helps the model to focus on the most relevant parts of the input when generating output.
+"""
+attn_weights_2_tmp=attn_scores_2/attn_scores_2.sum() # very basic normalisation technique where we divide each attention score by the sum of all attention scores to get the attention weights which sum up to 1
+print("Attention weights:",attn_weights_2_tmp)#attention scores and attention weights are same only difference is that attention weights are normalised attention scores and sumup to 1 whereas attention scores are not normalised and can have any value
+print("Sum of attention weights:",attn_weights_2_tmp.sum())
+"""<----softmax function for normalisation----> expression = exp(x_i) / sum(exp(x_j)) for j=1 to n"""
+def softmax_naive(x):
+    return torch.exp(x) / torch.exp(x).sum(dim=0)
+attn_weight_2_naive=softmax_naive(attn_scores_2)
+print("Attention weights: ",attn_weight_2_naive)
+print("Sum of attention weights=: ",attn_weight_2_naive.sum())
+"""
+Drawback of the above implementation is that it can lead to numerical instability when the attention scores are large,
+ as the exponential function can produce very large values, leading to overflow.
+"""
+#Implmenting softmax using PyTorch's built-in function(advisable to use it since it is optimized for numerical stability and performance)
+attn_weights_2=torch.softmax(attn_scores_2,dim=0)
+print("Attention weights: ",attn_weights_2)
+print("Sum of attention weights: ",attn_weights_2.sum())
+"""
+now make the final context vector by multiplying each input embedding vector by its corresponding attention 
+weight and summing the results to get a single context vector that represents the weighted 
+average of the input embeddings based on their relevance to the query. This context vector can then be used by the model to make predictions or generate output,
+as it captures the most relevant information from the input based on the attention mechanism.
+"""
+query=inputs[1]
+context_vector_2=torch.zeros(inputs.shape[1])#initialise context vector with zeros of the same dimension as input embeddings
+for i,x_i in enumerate(inputs):
+    context_vector_2+=attn_weights_2[i]*x_i #multiply each input embedding vector by its corresponding attention weight and sum the results to get the context vector which is a weighted average of the input embeddings based on their relevance to the query
+print("Context vector:",context_vector_2)   
+"""
+till now we found context vector of only second word (journey)
+now we will find context vector for all the words in the sentence by treating each word as a query and calculating its 
+attention scores, attention weights, and context vector in the same way as we did for the second word (journey).
+ This will give us a context vector for each word in the sentence, 
+which can be used by the model to make predictions or generate output based on the relevance of each word to the others in the sentence.
+"""
+attn_scores=torch.empty(6,6)
+for i,x_i in enumerate(inputs):
+    for j,x_j in enumerate(inputs):
+        attn_scores[i,j]=torch.dot(x_i,x_j)
+print("Attention scores:\n",attn_scores)
+#for loop is not effcient way to calculate attention scores since it has time complexity of o(n^2)
+#we can calculate attention scores more efficiently using matrix multiplication(matrix(M) * transposeof(M))
+attn_scores_efficient=inputs @ inputs.T #matrix multiplication of input embeddings with its transpose to get attention scores more efficiently
+print("Attention scores (efficient):\n",attn_scores_efficient)
+#let's normalise the attention scores using softmax function to get attention weights
+attn_weights=torch.softmax(attn_scores,dim=-1)
+print("Attention weights:\n",attn_weights)
+#now we will calculate the context vectors for all the words in the sentence by multiplying the attention weights with the input embeddings and summing the results
+print("All row sum:\n",attn_weights.sum(dim=-1))#to check if all the rows sum up to 1 since we applied softmax function to normalise the attention scores)
+#Therefore now the final step
+all_context_vectors=attn_weights @ inputs #matrix multiplication of attention weights with input embeddings to get context vectors for all the words in the sentence
+print("Context vectors for all words:\n",all_context_vectors)
+"""
+Though the above implementation of self attention mechanism is good
+but it only pays attention to the words which are more semantically related to query
+but it does not pay attention to the position of the words in the sentence which is also important for understanding the meaning of the sentence.
+For example, in the sentence "The cat sat on the mat because it was warm",
+here the words "mat" and "warm" might not be closer in traditional vector space but they are related in the context of the sentence
+ since "mat" is warm and "warm" is a property of "mat".Hence the concept of "Trainable Weights" is introduced int the attention mechanism.
+"""
+
+
+
+
+
+
+
+
+
+
+
 
 
 
