@@ -376,10 +376,83 @@ For example, in the sentence "The cat sat on the mat because it was warm",
 here the words "mat" and "warm" might not be closer in traditional vector space but they are related in the context of the sentence
  since "mat" is warm and "warm" is a property of "mat".Hence the concept of "Trainable Weights" is introduced int the attention mechanism.
 """
-
-
-
-
+"""<-----------------------------Self attention mechanism with trainable weights(Query,Key,Value)------------------------------>"""
+import torch
+inputs=torch.tensor(
+[
+[0.43, 0.15, 0.89], # your
+[0.55, 0.87, 0.66], # journey
+[0.57, 0.85, 0.64], # starts
+[0.22, 0.58, 0.33], # with
+[0.77, 0.25, 0.10], # one
+[0.05, 0.80, 0.55]  # step
+]
+)
+d_in=inputs.shape[1]#dimension of input embeddings(vector embeddings) which is 3 in this case
+d_out=2
+torch.manual_seed(123)
+W_query=torch.nn.Parameter(torch.rand(d_in, d_out), requires_grad=False)#generating random weights for query matrix of size d_in*d_out and setting requires_grad to False since we are not going to train these weights in this example
+W_key=torch.nn.Parameter(torch.rand(d_in, d_out), requires_grad=False)#generating random weights for key matrix of size d_in*d_out and setting requires_grad to False since we are not going to train these weights in this example
+W_value=torch.nn.Parameter(torch.rand(d_in, d_out), requires_grad=False)#generating random weights for value matrix of size d_in*d_out and setting requires_grad to False since we are not going to train these weights in this example
+print(W_query)
+print(W_key)
+print(W_value)
+x_2=inputs[1]#query vector for the word journey
+query_2=x_2 @ W_query #matrix multiplication of query vector with query weights to get the query representation for the word journey
+key_2=x_2 @ W_key #matrix multiplication of query vector with key weights to get the key representation for the word journey
+value_2=x_2 @ W_value #matrix multiplication of query vector with value weights to
+print("Query representation for the word 'journey':",query_2)
+#now lets do it for the whole input vectors matrix
+keys=inputs@W_key#keymatrix
+values=inputs@W_value#value matrix
+queries=inputs@W_query# query matrix
+print("keys.shape: ",keys.shape)#6*2 since we have 6 words in the sentence and d_out is 2
+print("values.shape: ",values.shape)#6*2 since we have 6 words in the sentence and d_out is 2
+print("queries.shape: ",queries.shape)#6*2 since we have 6 words in the sentence and d_out is 2
+#now lets compute attention scores
+#like previously we did for vector embeddings here we will do the same for query and key matrices to get attention scores
+#lets calculate for word "journey" which is the second word in the sentence
+query_2=queries[1]#query vector for the word journey
+attn_scores_2=query_2@keys.T#since dimension of word journey is 1*2 and dimension of keys is 6*2 we need to take transpose of keys to get the attention scores of word journey with all the words in the sentence
+print("Attention scores for the word 'journey':",attn_scores_2)
+#right now we have not trained the weights hence attn_scores doesnt capture the semantic relationship between the words but after training the weights will be optimized to capture the semantic relationship between the words in the sentence and hence the attention scores will reflect the relevance of each word to the query word "journey" in this case.
+#lets do it for whole query matrix
+attn_scores=queries@keys.T#matrix multiplication of query matrix with transpose of key matrix to get attention scores for all the words in the sentence
+print("Attention scores for all words:\n",attn_scores)
+#now lets normalise attention scores to attention weights
+#but before that we will scale the attention scores by underrooy(d_key =i.e,2(embedding dimension of keys)) to prevent the attention scores from becoming too large which can lead to numerical instability when we apply softmax function for normalisation
+#this is the reason why it is called "Scaled Dot Product Attention"
+d_k=keys.shape[-1]
+attn_weights_2=torch.softmax(attn_scores_2/d_k**0.5,dim=-1)#normalising attention scores of word journey to get attention weights)
+print("Attention weights for the word 'journey':",attn_weights_2)
+print(d_k)
+#let's print its sum to check if it is 1 since we applied softmax function to normalise attention scores
+print(attn_weights_2.sum())
+#now lets compute context vector for the word journey by multiplying attention weights with value matrix and summing the results
+context_vector_2=0
+for i in range(attn_weights_2.shape[0]):
+    context_vector_2+=attn_weights_2[i]*values[i]#multiply each value vector with its corresponding attention weight and sum the results to get the context vector for the word journey
+print("Context vector for the word 'journey':",context_vector_2)
+#or simply we can do it without for loop
+context_vector_2_efficient=attn_weights_2@values#matrix multiplication of attention weights with value matrix to get context vector for the word journey more efficiently without using for loop
+print("Context vector for the word 'journey' (efficient):",context_vector_2_efficient)
+#now lets do it for whole query matrix to get context vectors for all the words in the sentence
+attn_weights=torch.softmax(attn_scores/d_k**0.5,dim=-1)
+print("Attention weights for all words:\n",attn_weights)#attn_weights is a 6*6 matrix since we have 6 words in the sentence and each word has attention weights with all the words in the sentence including itself
+context_vectors=attn_weights@values#matrix multiplication of attention weights with value matrix to get context vectors for all the words in the sentence
+print("Context vectors for all words:\n",context_vectors)
+#lets accumulate all this in a class in a new python file called Self_attention.py for better understanding and implementation of self attention mechanism with trainable weights(Query,Key,Value) in a more structured way.
+from Self_attention import SelfAttention_v1
+torch.manual_seed(123)#important to get the same value as before
+SA=SelfAttention_v1(3,2)
+context_vectors_SA=SA.forward(inputs)
+print("Context vectors from SelfAttention class:\n",context_vectors_SA)#it should also print the same as we calculated before
+from Self_attention import SelfAttention_v2
+torch.manual_seed(789)
+SA_v2=SelfAttention_v2(3,2)
+context_vectors_SA_v2=SA_v2.forward(inputs)
+print("Context vectors from SelfAttention_v2 class:\n",context_vectors_SA_v2)#it should also print the same as we calculated before since we are using the same random seed for weight initialization in both classes
+#output differs because v2 uses different initialization scheme for weights and also it uses bias term in the linear transformation of query,key and value matrices which adds some extra values to the context vectors and hence the output differs from v1. 
 
 
 
